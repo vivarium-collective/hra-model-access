@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hra-model-access"
+version = "0.1.0"
+description = "Map BioModels entries to Human Reference Atlas ontologies"
+requires-python = ">=3.11"
+dependencies = [
+    "requests",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic"]
+dev = ["pytest"]
+
+[project.scripts]
+generate-hra-mapping = "hra_model_access.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["hra_model_access*"]
+
+[tool.pytest.ini_options]
+markers = ["integration: tests that hit live APIs"]
