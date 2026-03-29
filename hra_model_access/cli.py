@@ -12,7 +12,7 @@ from .enrichment import enrich
 FIELDS = [
     "Model_ID", "Model_Name", "Paper_Title", "Paper_Publication_Date",
     "Paper_Link", "DOI", "PubMed_ID", "BioModels_Status", "Model_Type",
-    "Temporal_Scale", "Atlas_Scale", "System_Modeled",
+    "Temporal_Scale", "Atlas_Scale", "Physiological_Context", "System_Modeled",
     "Anatomical_Structures", "Uberon_IDs", "Cell_Types", "CL_IDs",
     "Key_Biomolecules", "HGNC_IDs", "Mapping_Confidence",
     "Mapping_Provenance", "Primary_Source_URL",

@@ -9,7 +9,7 @@ import pytest
 
 from hra_model_access import api
 from hra_model_access.enrichment import (
-    enrich, _clean, _keyword_hits, _infer_temporal, _infer_atlas,
+    enrich, _clean, _keyword_hits, _infer_temporal, _infer_atlas, _infer_context,
     ANATOMY_TERMS, CELL_TERMS,
 )
 from hra_model_access.cli import extract_api_fields, FIELDS
@@ -47,6 +47,19 @@ class TestUnit:
         assert _infer_atlas(["liver"], ["hepatocyte"], "liver model", False) == "organ"
         assert _infer_atlas([], [], "whole-body pharmacokinetic model", False) == "whole body"
         assert _infer_atlas([], [], "pathway model", True) == "cell"
+
+    def test_infer_context_disease(self):
+        assert _infer_context(["diabetes mellitus"], "") == "diabetes"
+        assert _infer_context(["type 2 diabetes mellitus"], "") == "type 2 diabetes"
+        assert _infer_context([], "a model of tumor growth") == "tumor"
+        assert _infer_context([], "breast cancer progression") == "breast cancer"
+
+    def test_infer_context_healthy(self):
+        assert _infer_context([], "a model of calcium signaling") == "healthy"
+        assert _infer_context([], "glycolytic pathway kinetics") == "healthy"
+
+    def test_infer_context_mixed(self):
+        assert _infer_context([], "healthy state vs tumor comparison") == "healthy + tumor"
 
     def test_fields_no_duplicates(self):
         assert len(FIELDS) == len(set(FIELDS))

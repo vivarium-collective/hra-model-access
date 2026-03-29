@@ -8,6 +8,7 @@ import re
 _FIELD_HELP = {
     "Temporal_Scale": 'time scale (e.g., "1s<1min", "1min<1hr", "1week<1year")',
     "Atlas_Scale": 'spatial scale (e.g., "cell", "organ", "whole body")',
+    "Physiological_Context": '"healthy" or disease name (e.g., "tumor", "diabetes", "Parkinson\'s disease")',
     "System_Modeled": "brief description of what the model simulates",
     "Anatomical_Structures": 'semicolon-separated (e.g., "Pancreas;Blood circulatory system")',
     "Uberon_IDs": 'semicolon-separated (e.g., "UBERON:0001264")',

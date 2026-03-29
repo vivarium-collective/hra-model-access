@@ -48,6 +48,50 @@ CELL_TERMS: dict[str, str] = {
     "keratinocyte": "keratinocyte", "melanocyte": "melanocyte",
 }
 
+# keyword → (context_label, associated_organs)
+# Order matters: more specific patterns first
+DISEASE_CONTEXT: list[tuple[str, str, list[str]]] = [
+    ("type 2 diabetes",    "type 2 diabetes",    ["pancreas", "adipose tissue", "liver"]),
+    ("type 1 diabetes",    "type 1 diabetes",    ["pancreas"]),
+    ("diabetes mellitus",  "diabetes",           ["pancreas", "adipose tissue", "liver"]),
+    ("diabetes",           "diabetes",           ["pancreas", "adipose tissue", "liver"]),
+    ("breast cancer",      "breast cancer",      ["breast"]),
+    ("lung cancer",        "lung cancer",        ["lung"]),
+    ("liver cancer",       "liver cancer",       ["liver"]),
+    ("colorectal cancer",  "colorectal cancer",  ["colon"]),
+    ("prostate cancer",    "prostate cancer",    ["prostate gland"]),
+    ("glioma",             "glioma",             ["brain"]),
+    ("glioblastoma",       "glioblastoma",       ["brain"]),
+    ("melanoma",           "melanoma",           ["skin"]),
+    ("leukemia",           "leukemia",           ["bone marrow", "blood"]),
+    ("lymphoma",           "lymphoma",           ["bone marrow"]),
+    ("carcinoma",          "carcinoma",          []),
+    ("tumor",              "tumor",              []),
+    ("tumour",             "tumor",              []),
+    ("cancer",             "cancer",             []),
+    ("neoplasm",           "cancer",             []),
+    ("malignant",          "cancer",             []),
+    ("alzheimer",          "Alzheimer's disease", ["brain"]),
+    ("parkinson",          "Parkinson's disease", ["brain"]),
+    ("asthma",             "asthma",             ["lung"]),
+    ("hypertension",       "hypertension",       ["heart", "blood"]),
+    ("atherosclerosis",    "atherosclerosis",    ["blood"]),
+    ("hepatitis",          "hepatitis",          ["liver"]),
+    ("cirrhosis",          "cirrhosis",          ["liver"]),
+    ("nephritis",          "nephritis",          ["kidney"]),
+    ("osteoarthritis",     "osteoarthritis",     []),
+    ("arthritis",          "arthritis",          []),
+    ("infection",          "infection",           []),
+    ("viral",              "viral infection",     []),
+    ("inflammation",       "inflammation",        []),
+    ("autoimmune",         "autoimmune disease",  []),
+    ("obesity",            "obesity",            ["adipose tissue"]),
+    ("fibrosis",           "fibrosis",           []),
+    ("ischemia",           "ischemia",           ["heart"]),
+    ("muscular dystrophy", "muscular dystrophy", ["skeletal muscle tissue"]),
+]
+
+# Legacy alias used by disease→anatomy inference
 DISEASE_ANATOMY: dict[str, list[str]] = {
     "type 2 diabetes": ["pancreas", "adipose tissue", "liver"],
     "type 1 diabetes": ["pancreas"],
@@ -240,8 +284,8 @@ def enrich(details: dict, *, use_llm: bool = False) -> dict:
     if not anat and diseases:
         for disease in diseases:
             d_low = disease.lower()
-            for pattern, organs in DISEASE_ANATOMY.items():
-                if pattern in d_low:
+            for keyword, _, organs in DISEASE_CONTEXT:
+                if keyword in d_low and organs:
                     for org in organs:
                         _add_anatomy(anat, uberon, org)
                     prov.append(f"Anatomy from disease: {disease}.")
@@ -266,12 +310,16 @@ def enrich(details: dict, *, use_llm: bool = False) -> dict:
     temporal = _infer_temporal(all_text)
     atlas = _infer_atlas(anat, cells, all_text, bool(sbml.subcellular))
 
+    # Physiological context
+    context = _infer_context(diseases, all_text)
+
     # Confidence
     n = sum(map(bool, [anat, cells, genes, uberon, cl]))
     confidence = "High" if n >= 3 else ("Medium" if n >= 1 else "Low")
 
     result = {
         "Temporal_Scale": temporal, "Atlas_Scale": atlas,
+        "Physiological_Context": context,
         "System_Modeled": system,
         "Anatomical_Structures": ";".join(anat), "Uberon_IDs": ";".join(uberon),
         "Cell_Types": ";".join(cells), "CL_IDs": ";".join(cl),
@@ -294,6 +342,38 @@ def _infer_temporal(text: str) -> str:
         if any(k in low for k in kws):
             return scale
     return ""
+
+
+def _infer_context(diseases: list[str], text: str) -> str:
+    """Classify model as 'healthy' or a specific disease/condition.
+
+    Checks DOID disease annotations first, then scans text for disease keywords.
+    Returns 'healthy' if nothing disease-related is found.
+    """
+    # Check DOID disease names from annotations
+    for disease in diseases:
+        d_low = disease.lower()
+        for keyword, label, _ in DISEASE_CONTEXT:
+            if keyword in d_low:
+                return label
+
+    # Scan description/abstract text
+    low = text.lower()
+
+    # Explicit healthy markers
+    healthy_markers = ["healthy state", "healthy condition", "normal physiology",
+                       "healthy volunteer", "healthy subject", "physiological model",
+                       "wild type", "wild-type", "normal state"]
+    has_healthy = any(m in low for m in healthy_markers)
+
+    # Check disease keywords in text
+    for keyword, label, _ in DISEASE_CONTEXT:
+        if keyword in low:
+            if has_healthy:
+                return f"healthy + {label}"
+            return label
+
+    return "healthy"
 
 
 def _infer_atlas(anat, cells, text, has_subcellular) -> str:
