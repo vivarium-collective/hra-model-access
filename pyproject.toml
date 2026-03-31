@@ -12,11 +12,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+simulate = ["copasi-basico", "python-libsedml"]
 llm = ["anthropic"]
 dev = ["pytest"]
 
 [project.scripts]
 generate-hra-mapping = "hra_model_access.cli:main"
+evaluate-hra-models = "hra_model_access.simulate_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["hra_model_access*"]

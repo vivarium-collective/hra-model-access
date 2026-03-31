@@ -48,8 +48,35 @@ Ontology resolution uses the EBI [OLS](https://www.ebi.ac.uk/ols4/), [HGNC](http
 | Key_Biomolecules, HGNC_IDs | SBML UniProt + HGNC |
 | Temporal_Scale, Atlas_Scale | Keyword inference |
 | System_Modeled | GO terms / description |
+| Physiological_Context | "healthy", "tumor", "diabetes", etc. |
 | Mapping_Confidence | High/Medium/Low based on field coverage |
 | Mapping_Provenance | Per-model explanation of what sources contributed |
+
+## COPASI simulation evaluation
+
+Test which models in a mapping JSON are runnable with COPASI:
+
+```bash
+pip install -e ".[simulate]"
+
+# Evaluate all models — adds Runs_In_COPASI column
+evaluate-hra-models hra_mapping_100.json -o evaluated.json
+
+# Test first 5 only
+evaluate-hra-models hra_mapping_100.json -o evaluated.json --max-models 5
+```
+
+This adds fields: `Runs_In_COPASI` (bool), `Simulation_Duration`, `Simulation_Points`, `Simulation_Species_Count`, and `Simulation_Error` (on failure).
+
+You can also use the Python API directly:
+
+```python
+from hra_model_access.simulate import simulate_model
+
+result = simulate_model("BIOMD0000000356")
+print(result.species.keys())  # species names
+print(result.time[:5])        # time points
+```
 
 ## Optional LLM enrichment
 
