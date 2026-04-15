@@ -96,7 +96,8 @@ def main(argv: list[str] | None = None):
             print(f"  ERROR {mid}: {e}")
 
     with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(rows, f, indent=2, ensure_ascii=False)
+        json.dump({"query": args.query or "", "models": rows}, f,
+                  indent=2, ensure_ascii=False)
 
     # Coverage summary
     print(f"\nWrote {len(rows)} models → {args.output}")

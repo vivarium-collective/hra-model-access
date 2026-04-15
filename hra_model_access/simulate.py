@@ -89,11 +89,20 @@ def simulate_model(
     )
 
 
-def simulate_from_mapping(mapping_json: str, *, max_models: int | None = None):
-    """Run simulations for models in a mapping JSON file. Yields (model_id, SimResult | error)."""
+def _load_mapping(mapping_json: str) -> tuple[str, list[dict]]:
+    """Load a mapping JSON. Returns (query, entries). Accepts both plain-list and
+    wrapped {"query": ..., "models": [...]} formats."""
     import json
     with open(mapping_json) as f:
-        entries = json.load(f)
+        data = json.load(f)
+    if isinstance(data, dict) and "models" in data:
+        return data.get("query", "") or "", list(data["models"])
+    return "", list(data)
+
+
+def simulate_from_mapping(mapping_json: str, *, max_models: int | None = None):
+    """Run simulations for models in a mapping JSON file. Yields (model_id, SimResult | error)."""
+    _, entries = _load_mapping(mapping_json)
 
     for i, entry in enumerate(entries):
         if max_models and i >= max_models:
@@ -114,8 +123,7 @@ def evaluate_mapping(input_path: str, output_path: str, *,
     """
     import json
 
-    with open(input_path) as f:
-        entries = json.load(f)
+    query, entries = _load_mapping(input_path)
 
     if max_models:
         entries = entries[:max_models]
@@ -140,18 +148,20 @@ def evaluate_mapping(input_path: str, output_path: str, *,
             print(f"FAIL: {e}")
 
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2, ensure_ascii=False)
+        json.dump({"query": query, "models": entries}, f,
+                  indent=2, ensure_ascii=False)
 
     n_ok = sum(1 for e in entries if e.get("Runs_In_COPASI"))
     print(f"\nWrote {len(entries)} models → {output_path}")
     print(f"Runnable: {n_ok}/{len(entries)} ({n_ok*100//len(entries) if entries else 0}%)")
 
     if html_report:
-        _write_html_report(sim_results, html_report)
+        _write_html_report(sim_results, html_report, query=query)
         print(f"Report: {html_report}")
 
 
-def _write_html_report(sim_results: list[tuple[dict, SimResult | None]], path: str):
+def _write_html_report(sim_results: list[tuple[dict, SimResult | None]], path: str,
+                       *, query: str = ""):
     """Generate an HTML report with summary table and time-course plots."""
     n_total = len(sim_results)
     n_ok = sum(1 for _, r in sim_results if r is not None)
@@ -210,12 +220,20 @@ def _write_html_report(sim_results: list[tuple[dict, SimResult | None]], path: s
   .status {{ display: inline-block; color: #fff; padding: 2px 8px; border-radius: 4px;
              font-size: 11px; font-weight: bold; margin-right: 6px; }}
   .fail-msg {{ color: #c0392b; font-size: 13px; padding: 10px 0; }}
+  .query-box {{ background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #2563eb; }}
+  .query-label {{ font-size: 12px; color: #666; text-transform: uppercase;
+                  letter-spacing: 0.05em; margin-bottom: 6px; }}
+  .query-text {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                 font-size: 13px; white-space: pre-wrap; word-break: break-word;
+                 color: #1f2937; }}
   a {{ color: #2563eb; text-decoration: none; }}
   a:hover {{ text-decoration: underline; }}
   svg {{ display: block; }}
 </style>
 </head><body>
 <h1>HRA Model Evaluation Report</h1>
+{_query_block(query)}
 <div class="summary">
   <b>{n_ok}/{n_total}</b> models ran successfully in COPASI
   ({n_ok*100//n_total if n_total else 0}%)
@@ -291,6 +309,15 @@ def _make_svg_plot(result: SimResult, width: int = 700, height: int = 200) -> st
 
     return (f'<svg width="{total_w}" height="{height}" xmlns="http://www.w3.org/2000/svg">'
             f'{axes}{"".join(lines)}{"".join(legend)}</svg>')
+
+
+def _query_block(query: str) -> str:
+    if not query:
+        return ""
+    return (f'<div class="query-box">'
+            f'<div class="query-label">BioModels query</div>'
+            f'<div class="query-text">{_esc(query)}</div>'
+            f'</div>')
 
 
 def _esc(text: str) -> str:
